@@ -433,21 +433,46 @@ body::before {
     margin-top: 10px;
 }
 
-/* === Ad Section === */
-.ad-section {
+/* === Ad Slots === */
+.ad-slot {
     max-width: 728px;
-    margin: 16px auto;
-    padding: 8px;
+    margin: 8px auto;
+    padding: 6px;
     border-radius: 8px;
     background: rgba(0, 255, 204, 0.03);
     border: 1px solid rgba(0, 255, 204, 0.08);
     text-align: center;
-    min-height: 90px;
+    min-height: 60px;
+    overflow: hidden;
 }
 
-.ad-section #game-ad {
+.ad-slot-header {
+    grid-column: 1 / -1;
+    margin-bottom: 12px;
+}
+
+.ad-slot-inline {
+    margin-top: 8px;
+    border-top: 1px solid rgba(0, 255, 204, 0.06);
+}
+
+.ad-slot-sidebar {
+    margin-top: 8px;
+    border-top: 1px solid rgba(0, 255, 204, 0.06);
+}
+
+.ad-slot-footer {
+    margin: 12px auto;
+}
+
+.ad-slot-modal {
+    margin: 8px 20px;
+    min-height: 50px;
+}
+
+.ad-slot [data-roiify-placement] {
     width: 100%;
-    min-height: 90px;
+    min-height: 60px;
 }
 
 /* === Modal === */

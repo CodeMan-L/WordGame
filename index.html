@@ -44,12 +44,17 @@
         </div>
 
         <div class="main-content">
+            <!-- 顶部广告位 -->
+            <div id="ad-slot-header" class="ad-slot ad-slot-header"></div>
+
             <div class="log-area">
                 <header class="log-header">
                     <span class="log-title">事件日志</span>
                     <button class="clear-log-btn" onclick="clearLog()">清除</button>
                 </header>
                 <div id="event_log" class="event-log"></div>
+                <!-- 日志区底部广告位 -->
+                <div id="ad-slot-log" class="ad-slot ad-slot-inline"></div>
             </div>
 
             <div class="action-panel">
@@ -64,8 +69,13 @@
                     <button class="action-btn btn-memory" onclick="exciseMemoryAction()">切除记忆</button>
                     <button class="action-btn btn-reset" onclick="resetGame()">重置时间线</button>
                 </div>
+                <!-- 侧边栏广告位 -->
+                <div id="ad-slot-sidebar" class="ad-slot ad-slot-sidebar"></div>
             </div>
         </div>
+
+        <!-- 底部广告位 -->
+        <div id="ad-slot-footer" class="ad-slot ad-slot-footer"></div>
 
         <footer class="game-footer">
             © 2026 世界线管理局 | 时间是一条河流，而你是掌舵人
@@ -79,6 +89,8 @@
                 <button class="modal-close-btn" onclick="closeModal()">✕</button>
             </header>
             <div id="modal_body" class="modal-body"></div>
+            <!-- 模态框广告位 -->
+            <div id="ad-slot-modal" class="ad-slot ad-slot-modal"></div>
             <div class="modal-footer">
                 <button class="modal-confirm-btn" onclick="closeModal()">确认</button>
             </div>
@@ -90,51 +102,18 @@
         <button class="red-button" onclick="showRedButton()">因果熔断</button>
     </div>
 
-    <!-- 广告位 -->
-    <div class="ad-section">
-        <div id="game-ad"
-            data-roiify-placement="plc_cuqpbscc2mu4"
-            data-theme="auto"
-            data-width="auto"
-            data-radius="8"
-        ></div>
-    </div>
-
     <script src="state.js"></script>
     <script src="textPool.js"></script>
     <script src="corruption.js"></script>
     <script src="achievements.js"></script>
+    <script src="ads.js"></script>
     <script src="main.js"></script>
 
     <!-- RoiifyAds SDK -->
     <script async src="https://www.roiify.net/sdk/roiify-ads.js"></script>
     <script>
         window.addEventListener('load', function () {
-            // 首次加载广告
-            if (window.RoiifyAds) {
-                RoiifyAds.show('plc_cuqpbscc2mu4', '#game-ad', { theme: 'auto', radius: '8' });
-            }
-
-            // 监听广告交互结束事件，自动刷新加载新广告
-            var adContainer = document.getElementById('game-ad');
-            if (adContainer) {
-                // 使用 MutationObserver 监听广告容器内容变化
-                var observer = new MutationObserver(function () {
-                    var iframe = adContainer.querySelector('iframe');
-                    if (iframe) {
-                        iframe.addEventListener('load', function () {
-                            // 广告iframe加载完成后，一段时间后刷新广告
-                            setTimeout(function () {
-                                if (window.RoiifyAds) {
-                                    adContainer.innerHTML = '';
-                                    RoiifyAds.show('plc_cuqpbscc2mu4', '#game-ad', { theme: 'auto', radius: '8' });
-                                }
-                            }, 30000); // 30秒后刷新广告
-                        });
-                    }
-                });
-                observer.observe(adContainer, { childList: true, subtree: true });
-            }
+            AdManager.init();
         });
     </script>
 </body>
