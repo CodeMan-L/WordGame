@@ -1,10 +1,10 @@
 // ============================================================
 // 《我掌握世界线》 - 广告管理模块
-// Roiify Ads Manager - 广告展示 & 展示后自动刷新
+// Roiify Ads Manager - iframe 内联框架 & 点击刷新
 // ============================================================
 
 var AdManager = (function () {
-    // 广告位配置：容器 ID -> placement ID
+    // 广告位配置
     var SLOT_CONFIG = [
         { containerId: 'ad-slot-header',  placement: 'plc_cuqpbscc2mu4' },
         { containerId: 'ad-slot-sidebar', placement: 'plc_mdn2c7brmubq' },
@@ -13,150 +13,135 @@ var AdManager = (function () {
         { containerId: 'ad-slot-modal',   placement: 'plc_2450suzhskwx' }
     ];
 
-    // 刷新间隔（毫秒）
-    var REFRESH_INTERVAL = 30000;
+    // 广告展示时长（毫秒）- 悬浮展示后重新请求
+    var DISPLAY_DURATION = 3000;
 
-    // 每个广告位的刷新计时器
-    var refreshTimers = {};
+    // 等待 SDK 渲染广告的时间（毫秒）
+    var RENDER_WAIT = 2000;
 
-    // 展示计数
-    var impressionCounts = {};
+    // 点击后刷新延迟（毫秒）
+    var CLICK_REFRESH_DELAY = 1000;
 
-    // SDK 是否已就绪
-    var sdkReady = false;
+    // 每个广告位的定时器
+    var slotTimers = {};
 
     /**
-     * 初始化：SDK 加载后自动渲染所有广告位
+     * 初始化：加载所有广告位 + 监听 iframe 点击
      */
     function init() {
-        waitForSDK(function () {
-            sdkReady = true;
-            SLOT_CONFIG.forEach(function (slot) {
-                renderAd(slot);
-                watchForImpression(slot);
-            });
+        SLOT_CONFIG.forEach(function (slot) {
+            loadAd(slot);
         });
+        setupIframeClickDetection();
     }
 
     /**
-     * 等待 RoiifyAds SDK 就绪
+     * 构建 iframe 内的 HTML 内容
      */
-    function waitForSDK(callback) {
-        if (window.RoiifyAds) {
-            callback();
-            return;
-        }
-        var attempts = 0;
-        var timer = setInterval(function () {
-            attempts++;
-            if (window.RoiifyAds) {
-                clearInterval(timer);
-                callback();
-            } else if (attempts >= 60) {
-                clearInterval(timer);
-                console.warn('[AdManager] SDK 加载超时');
-            }
-        }, 500);
+    function buildIframeHtml(placement) {
+        return [
+            '<!DOCTYPE html><html><head>',
+            '<style>',
+            'body{margin:0;padding:0;overflow:hidden;background:transparent;}',
+            '</style>',
+            '</head><body>',
+            '<div data-roiify-placement="' + placement + '" data-theme="auto" data-width="auto" data-radius="8"></div>',
+            '<script async src="https://www.roiify.net/sdk/roiify-ads.js"><\/script>',
+            '</body></html>'
+        ].join('');
     }
 
     /**
-     * 渲染广告：调用 SDK 将广告填充到容器内的 div
+     * 加载广告：在容器内创建 iframe，加载 Roiify SDK 渲染广告
      */
-    function renderAd(slot) {
+    function loadAd(slot) {
         var container = document.getElementById(slot.containerId);
         if (!container) return;
 
-        // 找到容器内带 data-roiify-placement 的 div
-        var adDiv = container.querySelector('[data-roiify-placement]');
-        if (!adDiv) return;
+        // 清除旧定时器
+        clearSlotTimer(slot.containerId);
 
-        if (window.RoiifyAds) {
-            try {
-                RoiifyAds.show(slot.placement, '#' + slot.containerId + ' [data-roiify-placement]', {
-                    theme: 'auto',
-                    radius: '8'
-                });
-            } catch (e) {
-                console.warn('[AdManager] 广告渲染失败:', slot.placement, e);
-            }
-        }
-    }
-
-    /**
-     * 刷新单个广告位：清空内容 -> 重建 div -> 重新渲染
-     */
-    function refreshAd(slot) {
-        var container = document.getElementById(slot.containerId);
-        if (!container) return;
-
-        // 清空旧内容
+        // 清空容器
         container.innerHTML = '';
 
-        // 重建带属性的 div
-        var adDiv = document.createElement('div');
-        adDiv.setAttribute('data-roiify-placement', slot.placement);
-        adDiv.setAttribute('data-theme', 'auto');
-        adDiv.setAttribute('data-width', 'auto');
-        adDiv.setAttribute('data-radius', '8');
-        container.appendChild(adDiv);
+        // 创建 iframe
+        var iframe = document.createElement('iframe');
+        iframe.className = 'ad-iframe';
+        iframe.setAttribute('data-slot', slot.containerId);
+        iframe.setAttribute('scrolling', 'no');
+        iframe.srcdoc = buildIframeHtml(slot.placement);
+        container.appendChild(iframe);
 
-        // 重新渲染
-        renderAd(slot);
+        // iframe 加载完成后，等待 SDK 渲染广告，然后开始展示计时
+        iframe.addEventListener('load', function () {
+            // 等待 SDK 异步渲染广告
+            slotTimers[slot.containerId + '_render'] = setTimeout(function () {
+                // 广告渲染完成，显示悬浮提示
+                showFloatingHint(slot);
 
-        // 重新监听展示
-        watchForImpression(slot);
+                // 悬浮展示 DISPLAY_DURATION 后重新请求广告
+                slotTimers[slot.containerId] = setTimeout(function () {
+                    loadAd(slot);
+                }, DISPLAY_DURATION);
+            }, RENDER_WAIT);
+        });
     }
 
     /**
-     * 监听广告 iframe 加载完成，视为一次有效展示
-     * 展示成功后安排刷新
+     * 显示悬浮提示：广告展示中
      */
-    function watchForImpression(slot) {
+    function showFloatingHint(slot) {
         var container = document.getElementById(slot.containerId);
         if (!container) return;
 
-        // 清除旧计时器
-        clearTimer(slot.containerId);
+        // 移除旧提示
+        var old = container.querySelector('.ad-floating-hint');
+        if (old) old.remove();
 
-        var observer = new MutationObserver(function () {
-            var iframe = container.querySelector('iframe');
-            if (iframe && !iframe._adWatched) {
-                iframe._adWatched = true;
-                iframe.addEventListener('load', function onAdLoad() {
-                    // 记录展示
-                    impressionCounts[slot.placement] = (impressionCounts[slot.placement] || 0) + 1;
+        var hint = document.createElement('div');
+        hint.className = 'ad-floating-hint';
+        hint.textContent = '广告展示中';
+        container.appendChild(hint);
 
-                    // 展示成功后安排刷新
-                    scheduleRefresh(slot);
-                }, { once: true });
+        // 展示结束后移除
+        setTimeout(function () {
+            if (hint.parentNode) hint.remove();
+        }, DISPLAY_DURATION);
+    }
 
-                observer.disconnect();
+    /**
+     * 监听 iframe 内的点击事件
+     * 原理：用户点击 iframe 内部时，父窗口失去焦点，activeElement 变为该 iframe
+     */
+    function setupIframeClickDetection() {
+        window.addEventListener('blur', function () {
+            var active = document.activeElement;
+            if (active && active.tagName === 'IFRAME' && active.classList.contains('ad-iframe')) {
+                var slotId = active.getAttribute('data-slot');
+                var slot = SLOT_CONFIG.find(function (s) {
+                    return s.containerId === slotId;
+                });
+                if (slot) {
+                    // 点击广告 → 更改 iframe src（重新加载）触发收益转换
+                    setTimeout(function () {
+                        loadAd(slot);
+                    }, CLICK_REFRESH_DELAY);
+                }
             }
         });
-
-        observer.observe(container, { childList: true, subtree: true });
-
-        // 兜底：无论如何都定时刷新
-        scheduleRefresh(slot);
     }
 
     /**
-     * 安排延迟刷新
+     * 清除指定广告位的定时器
      */
-    function scheduleRefresh(slot) {
-        clearTimer(slot.containerId);
-        refreshTimers[slot.containerId] = setTimeout(function () {
-            refreshAd(slot);
-        }, REFRESH_INTERVAL);
-    }
-
-    /**
-     * 清除计时器
-     */
-    function clearTimer(containerId) {
-        if (refreshTimers[containerId]) {
-            clearTimeout(refreshTimers[containerId]);
-            delete refreshTimers[containerId];
+    function clearSlotTimer(containerId) {
+        if (slotTimers[containerId]) {
+            clearTimeout(slotTimers[containerId]);
+            delete slotTimers[containerId];
+        }
+        if (slotTimers[containerId + '_render']) {
+            clearTimeout(slotTimers[containerId + '_render']);
+            delete slotTimers[containerId + '_render'];
         }
     }
 
@@ -169,7 +154,7 @@ var AdManager = (function () {
         });
         if (slot) {
             setTimeout(function () {
-                refreshAd(slot);
+                loadAd(slot);
             }, 300);
         }
     }
@@ -182,7 +167,7 @@ var AdManager = (function () {
             return s.containerId === 'ad-slot-sidebar';
         });
         if (slot) {
-            refreshAd(slot);
+            loadAd(slot);
         }
     }
 
@@ -191,21 +176,13 @@ var AdManager = (function () {
      */
     function refreshAll() {
         SLOT_CONFIG.forEach(function (slot) {
-            refreshAd(slot);
+            loadAd(slot);
         });
-    }
-
-    /**
-     * 获取展示统计
-     */
-    function getStats() {
-        return Object.assign({}, impressionCounts);
     }
 
     return {
         init: init,
         refreshAll: refreshAll,
-        getStats: getStats,
         onModalOpen: onModalOpen,
         onGameAction: onGameAction
     };
