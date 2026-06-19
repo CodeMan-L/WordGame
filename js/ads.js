@@ -1,44 +1,39 @@
 // ============================================================
 // 《我掌握世界线》 - 广告管理模块
-// Roiify Ads Manager - 广告轮换 & 展示后自动刷新
+// Roiify Ads Manager - 广告展示 & 展示后自动刷新
 // ============================================================
 
 var AdManager = (function () {
-    // 所有广告位 ID
-    var PLACEMENTS = [
-        'plc_cuqpbscc2mu4',
-        'plc_mdn2c7brmubq',
-        'plc_veoj4xd63gvk',
-        'plc_xz7j9zet6udj',
-        'plc_2450suzhskwx'
-    ];
-
-    // 广告位配置：页面上的容器 ID -> 分配的 placement
+    // 广告位配置：容器 ID -> placement ID
     var SLOT_CONFIG = [
-        { containerId: 'ad-slot-header',  placement: PLACEMENTS[0] },
-        { containerId: 'ad-slot-sidebar', placement: PLACEMENTS[1] },
-        { containerId: 'ad-slot-log',     placement: PLACEMENTS[2] },
-        { containerId: 'ad-slot-footer',  placement: PLACEMENTS[3] },
-        { containerId: 'ad-slot-modal',   placement: PLACEMENTS[4] }
+        { containerId: 'ad-slot-header',  placement: 'plc_cuqpbscc2mu4' },
+        { containerId: 'ad-slot-sidebar', placement: 'plc_mdn2c7brmubq' },
+        { containerId: 'ad-slot-log',     placement: 'plc_veoj4xd63gvk' },
+        { containerId: 'ad-slot-footer',  placement: 'plc_xz7j9zet6udj' },
+        { containerId: 'ad-slot-modal',   placement: 'plc_2450suzhskwx' }
     ];
 
     // 刷新间隔（毫秒）
-    var REFRESH_INTERVAL = 30000; // 30秒
+    var REFRESH_INTERVAL = 30000;
 
     // 每个广告位的刷新计时器
     var refreshTimers = {};
 
-    // 每个广告位的展示计数
+    // 展示计数
     var impressionCounts = {};
 
+    // SDK 是否已就绪
+    var sdkReady = false;
+
     /**
-     * 初始化所有广告位
+     * 初始化：SDK 加载后自动渲染所有广告位
      */
     function init() {
-        // 等待 SDK 加载
         waitForSDK(function () {
+            sdkReady = true;
             SLOT_CONFIG.forEach(function (slot) {
-                loadAd(slot);
+                renderAd(slot);
+                watchForImpression(slot);
             });
         });
     }
@@ -51,32 +46,53 @@ var AdManager = (function () {
             callback();
             return;
         }
-
         var attempts = 0;
-        var maxAttempts = 50; // 最多等 25 秒
-        var interval = setInterval(function () {
+        var timer = setInterval(function () {
             attempts++;
             if (window.RoiifyAds) {
-                clearInterval(interval);
+                clearInterval(timer);
                 callback();
-            } else if (attempts >= maxAttempts) {
-                clearInterval(interval);
-                console.warn('[AdManager] RoiifyAds SDK 加载超时');
+            } else if (attempts >= 60) {
+                clearInterval(timer);
+                console.warn('[AdManager] SDK 加载超时');
             }
         }, 500);
     }
 
     /**
-     * 加载广告到指定广告位
+     * 渲染广告：调用 SDK 将广告填充到容器内的 div
      */
-    function loadAd(slot) {
+    function renderAd(slot) {
+        var container = document.getElementById(slot.containerId);
+        if (!container) return;
+
+        // 找到容器内带 data-roiify-placement 的 div
+        var adDiv = container.querySelector('[data-roiify-placement]');
+        if (!adDiv) return;
+
+        if (window.RoiifyAds) {
+            try {
+                RoiifyAds.show(slot.placement, '#' + slot.containerId + ' [data-roiify-placement]', {
+                    theme: 'auto',
+                    radius: '8'
+                });
+            } catch (e) {
+                console.warn('[AdManager] 广告渲染失败:', slot.placement, e);
+            }
+        }
+    }
+
+    /**
+     * 刷新单个广告位：清空内容 -> 重建 div -> 重新渲染
+     */
+    function refreshAd(slot) {
         var container = document.getElementById(slot.containerId);
         if (!container) return;
 
         // 清空旧内容
         container.innerHTML = '';
 
-        // 创建广告 div
+        // 重建带属性的 div
         var adDiv = document.createElement('div');
         adDiv.setAttribute('data-roiify-placement', slot.placement);
         adDiv.setAttribute('data-theme', 'auto');
@@ -84,79 +100,89 @@ var AdManager = (function () {
         adDiv.setAttribute('data-radius', '8');
         container.appendChild(adDiv);
 
-        // 调用 SDK 展示广告
-        if (window.RoiifyAds) {
-            try {
-                RoiifyAds.show(slot.placement, '#' + slot.containerId + ' > div', {
-                    theme: 'auto',
-                    radius: '8'
-                });
-            } catch (e) {
-                console.warn('[AdManager] 广告展示失败:', slot.placement, e);
-            }
-        }
+        // 重新渲染
+        renderAd(slot);
 
-        // 监听广告加载成功，设置自动刷新
-        observeAdImpression(slot);
+        // 重新监听展示
+        watchForImpression(slot);
     }
 
     /**
-     * 监听广告容器，检测广告成功展示后自动刷新
+     * 监听广告 iframe 加载完成，视为一次有效展示
+     * 展示成功后安排刷新
      */
-    function observeAdImpression(slot) {
+    function watchForImpression(slot) {
         var container = document.getElementById(slot.containerId);
         if (!container) return;
 
-        // 清除旧的计时器
-        if (refreshTimers[slot.containerId]) {
-            clearTimeout(refreshTimers[slot.containerId]);
-        }
+        // 清除旧计时器
+        clearTimer(slot.containerId);
 
         var observer = new MutationObserver(function () {
             var iframe = container.querySelector('iframe');
-            if (iframe) {
-                // iframe 出现说明广告正在加载
-                iframe.addEventListener('load', function () {
-                    // 广告加载成功 = 一次有效展示
+            if (iframe && !iframe._adWatched) {
+                iframe._adWatched = true;
+                iframe.addEventListener('load', function onAdLoad() {
+                    // 记录展示
                     impressionCounts[slot.placement] = (impressionCounts[slot.placement] || 0) + 1;
 
-                    // 展示成功后，延迟刷新请求新广告
+                    // 展示成功后安排刷新
                     scheduleRefresh(slot);
-                });
+                }, { once: true });
 
-                // 只需要检测一次，断开观察
                 observer.disconnect();
             }
         });
 
         observer.observe(container, { childList: true, subtree: true });
 
-        // 安全兜底：如果 MutationObserver 未触发，也定时刷新
+        // 兜底：无论如何都定时刷新
         scheduleRefresh(slot);
     }
 
     /**
-     * 定时刷新广告
+     * 安排延迟刷新
      */
     function scheduleRefresh(slot) {
-        if (refreshTimers[slot.containerId]) {
-            clearTimeout(refreshTimers[slot.containerId]);
-        }
-
+        clearTimer(slot.containerId);
         refreshTimers[slot.containerId] = setTimeout(function () {
-            loadAd(slot);
+            refreshAd(slot);
         }, REFRESH_INTERVAL);
     }
 
     /**
-     * 手动刷新指定广告位
+     * 清除计时器
      */
-    function refresh(slotId) {
+    function clearTimer(containerId) {
+        if (refreshTimers[containerId]) {
+            clearTimeout(refreshTimers[containerId]);
+            delete refreshTimers[containerId];
+        }
+    }
+
+    /**
+     * 模态框打开时刷新模态框广告
+     */
+    function onModalOpen() {
         var slot = SLOT_CONFIG.find(function (s) {
-            return s.containerId === slotId;
+            return s.containerId === 'ad-slot-modal';
         });
         if (slot) {
-            loadAd(slot);
+            setTimeout(function () {
+                refreshAd(slot);
+            }, 300);
+        }
+    }
+
+    /**
+     * 游戏操作时刷新侧边栏广告
+     */
+    function onGameAction() {
+        var slot = SLOT_CONFIG.find(function (s) {
+            return s.containerId === 'ad-slot-sidebar';
+        });
+        if (slot) {
+            refreshAd(slot);
         }
     }
 
@@ -165,7 +191,7 @@ var AdManager = (function () {
      */
     function refreshAll() {
         SLOT_CONFIG.forEach(function (slot) {
-            loadAd(slot);
+            refreshAd(slot);
         });
     }
 
@@ -176,36 +202,8 @@ var AdManager = (function () {
         return Object.assign({}, impressionCounts);
     }
 
-    /**
-     * 在模态框打开时加载模态框广告
-     */
-    function onModalOpen() {
-        var slot = SLOT_CONFIG.find(function (s) {
-            return s.containerId === 'ad-slot-modal';
-        });
-        if (slot) {
-            // 延迟一点确保模态框已渲染
-            setTimeout(function () {
-                loadAd(slot);
-            }, 300);
-        }
-    }
-
-    /**
-     * 在探索时刷新侧边栏广告（增加曝光机会）
-     */
-    function onGameAction() {
-        var sidebarSlot = SLOT_CONFIG.find(function (s) {
-            return s.containerId === 'ad-slot-sidebar';
-        });
-        if (sidebarSlot) {
-            loadAd(sidebarSlot);
-        }
-    }
-
     return {
         init: init,
-        refresh: refresh,
         refreshAll: refreshAll,
         getStats: getStats,
         onModalOpen: onModalOpen,
