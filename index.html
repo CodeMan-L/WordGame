@@ -3,98 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>������������</title>
+    <title>我掌握世界线</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div class="container">
         <header class="game-header">
-            <h1 class="game-title">������������</h1>
+            <h1 class="game-title">我掌握世界线</h1>
             <div class="header-subtitle">WORLD LINE MASTER</div>
         </header>
 
         <div class="status-bar">
             <div class="status-item">
-                <span class="status-label">��ǰʱ��</span>
-                <span class="status-value era-value" id="current_era">ԭʼʱ��</span>
+                <span class="status-label">当前时代</span>
+                <span class="status-value era-value" id="current_era">远古</span>
             </div>
             <div class="status-item">
-                <span class="status-label">������</span>
-                <span class="status-value corruption-value" id="corruption_level">0%</span>
-                <div class="status-bar-fill corruption-bar"></div>
+                <span class="status-label">腐化度</span>
+                <span class="status-value corruption-value" id="corruption_level">0</span>
+                <div class="corruption-bar">
+                    <div class="corruption-bar-fill" id="corruption_bar_fill"></div>
+                </div>
+            </div>
+            <div class="status-item time-stones-item">
+                <span class="status-label">时间石</span>
+                <span class="status-value stones-value" id="time_stones">0</span>
             </div>
             <div class="status-item">
-                <span class="status-label">ʱ��ʯ</span>
-                <span class="status-value stone-value" id="time_stones">0</span>
+                <span class="status-label">世界线</span>
+                <span class="status-value timeline-value" id="worldline">0.000000</span>
             </div>
             <div class="status-item">
-                <span class="status-label">������</span>
-                <span class="status-value timeline-value" id="worldline">Alpha-01</span>
+                <span class="status-label">修为</span>
+                <span class="status-value cultivation-value" id="cultivation_display">0</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">神性</span>
+                <span class="status-value divinity-value" id="divinity_display">0</span>
             </div>
         </div>
 
         <div class="main-content">
             <div class="log-area">
-                <div class="log-header">
-                    <span>�¼���־</span>
-                    <button class="log-clear-btn" onclick="clearLog()">���</button>
-                </div>
-                <div class="log-content" id="event_log">
-                    <div class="log-entry system-log">��ӭ���������߹���ϵͳ��ʱ��ĺ����ڵȴ�����...</div>
-                </div>
+                <header class="log-header">
+                    <span class="log-title">事件日志</span>
+                    <button class="clear-log-btn" onclick="clearLog()">清除</button>
+                </header>
+                <div id="event_log" class="event-log"></div>
             </div>
 
             <div class="action-panel">
-                <div class="panel-header">
-                    <span>ʱ��ٿ��ն�</span>
-                </div>
+                <header class="action-header">时间操控终端</header>
                 <div class="action-buttons">
-                    <button class="action-btn explore-btn" onclick="explore()">
-                        <span class="btn-icon"></span>
-                        <span class="btn-text">̽��</span>
-                    </button>
-                    <button class="action-btn era-btn" onclick="changeEra()">
-                        <span class="btn-icon"></span>
-                        <span class="btn-text">�л�ʱ��</span>
-                    </button>
-                    <button class="action-btn status-btn" onclick="showStatus()">
-                        <span class="btn-icon"></span>
-                        <span class="btn-text">�鿴״̬</span>
-                    </button>
-                    <button class="action-btn timeline-btn" onclick="viewTimeline()">
-                        <span class="btn-icon"></span>
-                        <span class="btn-text">�۲�������</span>
-                    </button>
-                    <button class="action-btn reset-btn" onclick="resetGame()">
-                        <span class="btn-icon"></span>
-                        <span class="btn-text">����ʱ����</span>
-                    </button>
+                    <button class="action-btn btn-explore" onclick="explore()">探索</button>
+                    <button class="action-btn btn-era" onclick="changeEraAction()">切换时代</button>
+                    <button class="action-btn btn-status" onclick="showStatus()">查看状态</button>
+                    <button class="action-btn btn-timeline" onclick="viewTimeline()">观测世界线</button>
+                    <button class="action-btn btn-achievements" onclick="showAchievements()">成就</button>
+                    <button class="action-btn btn-ascension" onclick="showAscensionPaths()">飞升之路</button>
+                    <button class="action-btn btn-memory" onclick="exciseMemoryAction()">切除记忆</button>
+                    <button class="action-btn btn-reset" onclick="resetGame()">重置时间线</button>
                 </div>
             </div>
         </div>
 
         <footer class="game-footer">
-            <span class="footer-text"> 2026 �����߹����� | ʱ����һ���������������ƶ���</span>
+            © 2026 世界线管理局 | 时间是一条河流，而你是掌舵人
         </footer>
     </div>
 
-    <div class="modal-overlay" id="modal_overlay" style="display: none;">
+    <div class="modal-overlay" id="modal_overlay">
         <div class="modal-content">
-            <div class="modal-header">
-                <span id="modal_title">��ʾ</span>
-                <button class="modal-close" onclick="closeModal()"></button>
-            </div>
-            <div class="modal-body" id="modal_body"></div>
+            <header class="modal-header">
+                <h2 id="modal_title"></h2>
+                <button class="modal-close-btn" onclick="closeModal()">✕</button>
+            </header>
+            <div id="modal_body" class="modal-body"></div>
             <div class="modal-footer">
-                <button class="modal-btn" onclick="closeModal()">ȷ��</button>
+                <button class="modal-confirm-btn" onclick="closeModal()">确认</button>
             </div>
         </div>
     </div>
 
-    <script src="js/state.js"></script>
-    <script src="js/textPool.js"></script>
-    <script src="js/corruption.js"></script>
-    <script src="js/achievements.js"></script>
-    <script src="js/main.js"></script>
+    <div id="red_button_container" class="red-button-container">
+        <div class="red-button-warning">⚠ 警告：因果律已严重扭曲 ⚠</div>
+        <button class="red-button" onclick="showRedButton()">因果熔断</button>
+    </div>
+
+    <script src="state.js"></script>
+    <script src="textPool.js"></script>
+    <script src="corruption.js"></script>
+    <script src="achievements.js"></script>
+    <script src="main.js"></script>
 </body>
 </html>
