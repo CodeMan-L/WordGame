@@ -433,6 +433,23 @@ body::before {
     margin-top: 10px;
 }
 
+/* === Ad Section === */
+.ad-section {
+    max-width: 728px;
+    margin: 16px auto;
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(0, 255, 204, 0.03);
+    border: 1px solid rgba(0, 255, 204, 0.08);
+    text-align: center;
+    min-height: 90px;
+}
+
+.ad-section #game-ad {
+    width: 100%;
+    min-height: 90px;
+}
+
 /* === Modal === */
 .modal-overlay {
     display: none;

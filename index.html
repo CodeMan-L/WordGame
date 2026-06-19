@@ -90,10 +90,52 @@
         <button class="red-button" onclick="showRedButton()">因果熔断</button>
     </div>
 
+    <!-- 广告位 -->
+    <div class="ad-section">
+        <div id="game-ad"
+            data-roiify-placement="plc_cuqpbscc2mu4"
+            data-theme="auto"
+            data-width="auto"
+            data-radius="8"
+        ></div>
+    </div>
+
     <script src="state.js"></script>
     <script src="textPool.js"></script>
     <script src="corruption.js"></script>
     <script src="achievements.js"></script>
     <script src="main.js"></script>
+
+    <!-- RoiifyAds SDK -->
+    <script async src="https://www.roiify.net/sdk/roiify-ads.js"></script>
+    <script>
+        window.addEventListener('load', function () {
+            // 首次加载广告
+            if (window.RoiifyAds) {
+                RoiifyAds.show('plc_cuqpbscc2mu4', '#game-ad', { theme: 'auto', radius: '8' });
+            }
+
+            // 监听广告交互结束事件，自动刷新加载新广告
+            var adContainer = document.getElementById('game-ad');
+            if (adContainer) {
+                // 使用 MutationObserver 监听广告容器内容变化
+                var observer = new MutationObserver(function () {
+                    var iframe = adContainer.querySelector('iframe');
+                    if (iframe) {
+                        iframe.addEventListener('load', function () {
+                            // 广告iframe加载完成后，一段时间后刷新广告
+                            setTimeout(function () {
+                                if (window.RoiifyAds) {
+                                    adContainer.innerHTML = '';
+                                    RoiifyAds.show('plc_cuqpbscc2mu4', '#game-ad', { theme: 'auto', radius: '8' });
+                                }
+                            }, 30000); // 30秒后刷新广告
+                        });
+                    }
+                });
+                observer.observe(adContainer, { childList: true, subtree: true });
+            }
+        });
+    </script>
 </body>
 </html>
