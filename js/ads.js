@@ -1,6 +1,6 @@
 // ============================================================
 // 《我掌握世界线》 - 广告管理模块
-// 初始5个官方广告位 + 每5秒追加 + 每小时重定向
+// 小尺寸广告 + 每20秒追加5个 + 自动滚动 + 10分钟重定向
 // ============================================================
 
 var AdManager = (function () {
@@ -13,11 +13,11 @@ var AdManager = (function () {
         'plc_2450suzhskwx'
     ];
 
-    // 追加间隔（毫秒）
-    var APPEND_INTERVAL = 5000;
+    // 追加间隔（毫秒）- 20秒，确保每个广告可见15秒以上
+    var APPEND_INTERVAL = 20000;
 
-    // 页面重定向间隔（毫秒）- 1小时
-    var REDIRECT_INTERVAL = 3600000;
+    // 页面重定向间隔（毫秒）- 10分钟
+    var REDIRECT_INTERVAL = 600000;
 
     // 追加计数
     var roundCount = 0;
@@ -26,19 +26,19 @@ var AdManager = (function () {
      * 初始化
      */
     function init() {
-        // 每5秒追加一轮广告
+        // 每20秒追加一轮广告
         setInterval(function () {
             appendAdRound();
         }, APPEND_INTERVAL);
 
-        // 每小时重定向页面
+        // 10分钟后重定向页面
         setTimeout(function () {
             location.reload();
         }, REDIRECT_INTERVAL);
     }
 
     /**
-     * 追加一轮广告：创建 data-roiify-placement div，然后调 refresh 让 SDK 扫描渲染
+     * 追加一轮广告：5个 placement ID 各创建一个小尺寸广告位
      */
     function appendAdRound() {
         var zone = document.getElementById('ad-append-zone');
@@ -48,27 +48,33 @@ var AdManager = (function () {
 
         PLACEMENT_IDS.forEach(function (placement, index) {
             var wrapper = document.createElement('div');
-            wrapper.className = 'ad-slot';
+            wrapper.className = 'ad-slot ad-slot-small';
 
-            // 官方规范格式：data-roiify-placement div
+            // 官方规范格式
             var adDiv = document.createElement('div');
             adDiv.setAttribute('data-roiify-placement', placement);
             adDiv.setAttribute('data-theme', 'auto');
             adDiv.setAttribute('data-width', 'auto');
-            adDiv.setAttribute('data-radius', '8');
+            adDiv.setAttribute('data-radius', '4');
 
             wrapper.appendChild(adDiv);
             zone.appendChild(wrapper);
         });
 
-        // 调用 SDK refresh 扫描所有未加载的 data-roiify-placement 元素并渲染
+        // 调用 SDK refresh 扫描渲染新广告
         if (window.RoiifyAds && window.RoiifyAds.refresh) {
             try {
                 RoiifyAds.refresh();
-            } catch (e) {
-                console.warn('[AdManager] refresh 失败:', e);
-            }
+            } catch (e) {}
         }
+
+        // 滚动到新广告位置，确保可见（SDK 要求广告在视口内2秒才算有效展示）
+        setTimeout(function () {
+            var lastAd = zone.lastElementChild;
+            if (lastAd) {
+                lastAd.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 500);
     }
 
     /**

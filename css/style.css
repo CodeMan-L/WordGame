@@ -436,38 +436,44 @@ body::before {
 /* === Ad Slots === */
 .ad-slot {
     max-width: 728px;
-    margin: 8px auto;
-    padding: 6px;
-    border-radius: 8px;
+    margin: 4px auto;
+    padding: 2px;
+    border-radius: 4px;
     background: rgba(0, 255, 204, 0.03);
     border: 1px solid rgba(0, 255, 204, 0.08);
     text-align: center;
-    min-height: 90px;
+    min-height: 50px;
     overflow: hidden;
+}
+
+.ad-slot-small {
+    min-height: 50px;
+    margin: 3px auto;
+    padding: 2px;
 }
 
 .ad-slot-header {
     grid-column: 1 / -1;
-    margin-bottom: 12px;
+    margin-bottom: 4px;
 }
 
 .ad-slot-inline {
-    margin-top: 8px;
+    margin-top: 4px;
     border-top: 1px solid rgba(0, 255, 204, 0.06);
 }
 
 .ad-slot-sidebar {
-    margin-top: 8px;
+    margin-top: 4px;
     border-top: 1px solid rgba(0, 255, 204, 0.06);
 }
 
 .ad-slot-footer {
-    margin: 12px auto;
+    margin: 4px auto;
 }
 
 .ad-slot-modal {
-    margin: 8px 20px;
-    min-height: 70px;
+    margin: 4px 20px;
+    min-height: 50px;
 }
 
 /* === Modal === */
