@@ -19,7 +19,7 @@ var AdManager = (function () {
     // 页面重定向间隔（毫秒）- 1小时
     var REDIRECT_INTERVAL = 3600000;
 
-    // 追加计数，用于生成唯一 ID
+    // 追加计数
     var roundCount = 0;
 
     /**
@@ -38,8 +38,7 @@ var AdManager = (function () {
     }
 
     /**
-     * 追加一轮广告：5个 placement ID 各创建一个广告位
-     * 使用 RoiifyAds.show(placementId, cssSelector, options) 渲染
+     * 追加一轮广告：创建 data-roiify-placement div，然后调 refresh 让 SDK 扫描渲染
      */
     function appendAdRound() {
         var zone = document.getElementById('ad-append-zone');
@@ -48,15 +47,10 @@ var AdManager = (function () {
         roundCount++;
 
         PLACEMENT_IDS.forEach(function (placement, index) {
-            // 生成唯一 ID
-            var wrapperId = 'ad-r' + roundCount + '-' + index;
-
-            // 创建容器
             var wrapper = document.createElement('div');
-            wrapper.id = wrapperId;
             wrapper.className = 'ad-slot';
 
-            // 创建官方格式的广告 div
+            // 官方规范格式：data-roiify-placement div
             var adDiv = document.createElement('div');
             adDiv.setAttribute('data-roiify-placement', placement);
             adDiv.setAttribute('data-theme', 'auto');
@@ -65,22 +59,35 @@ var AdManager = (function () {
 
             wrapper.appendChild(adDiv);
             zone.appendChild(wrapper);
-
-            // 用 JS API 渲染：第二个参数是 CSS 选择器字符串
-            if (window.RoiifyAds) {
-                try {
-                    RoiifyAds.show(placement, '#' + wrapperId, {
-                        theme: 'auto',
-                        radius: '8'
-                    });
-                } catch (e) {
-                    console.warn('[AdManager] show 失败:', placement, e);
-                }
-            }
         });
+
+        // 调用 SDK refresh 扫描所有未加载的 data-roiify-placement 元素并渲染
+        if (window.RoiifyAds && window.RoiifyAds.refresh) {
+            try {
+                RoiifyAds.refresh();
+            } catch (e) {
+                console.warn('[AdManager] refresh 失败:', e);
+            }
+        }
+    }
+
+    /**
+     * 模态框打开时追加一轮广告
+     */
+    function onModalOpen() {
+        appendAdRound();
+    }
+
+    /**
+     * 游戏操作时追加一轮广告
+     */
+    function onGameAction() {
+        appendAdRound();
     }
 
     return {
-        init: init
+        init: init,
+        onModalOpen: onModalOpen,
+        onGameAction: onGameAction
     };
 })();
