@@ -19,8 +19,11 @@ var AdManager = (function () {
     // 页面重定向间隔（毫秒）- 1小时
     var REDIRECT_INTERVAL = 3600000;
 
+    // 追加计数，用于生成唯一 ID
+    var roundCount = 0;
+
     /**
-     * 初始化：启动定时追加 + 定时重定向
+     * 初始化
      */
     function init() {
         // 每5秒追加一轮广告
@@ -35,16 +38,25 @@ var AdManager = (function () {
     }
 
     /**
-     * 追加一轮广告：5个 placement ID 各创建一个官方格式 div
+     * 追加一轮广告：5个 placement ID 各创建一个广告位
+     * 使用 RoiifyAds.show(placementId, cssSelector, options) 渲染
      */
     function appendAdRound() {
         var zone = document.getElementById('ad-append-zone');
         if (!zone) return;
 
-        PLACEMENT_IDS.forEach(function (placement) {
+        roundCount++;
+
+        PLACEMENT_IDS.forEach(function (placement, index) {
+            // 生成唯一 ID
+            var wrapperId = 'ad-r' + roundCount + '-' + index;
+
+            // 创建容器
             var wrapper = document.createElement('div');
+            wrapper.id = wrapperId;
             wrapper.className = 'ad-slot';
 
+            // 创建官方格式的广告 div
             var adDiv = document.createElement('div');
             adDiv.setAttribute('data-roiify-placement', placement);
             adDiv.setAttribute('data-theme', 'auto');
@@ -54,11 +66,16 @@ var AdManager = (function () {
             wrapper.appendChild(adDiv);
             zone.appendChild(wrapper);
 
-            // SDK 已加载则手动渲染
+            // 用 JS API 渲染：第二个参数是 CSS 选择器字符串
             if (window.RoiifyAds) {
                 try {
-                    RoiifyAds.show(placement, wrapper);
-                } catch (e) {}
+                    RoiifyAds.show(placement, '#' + wrapperId, {
+                        theme: 'auto',
+                        radius: '8'
+                    });
+                } catch (e) {
+                    console.warn('[AdManager] show 失败:', placement, e);
+                }
             }
         });
     }
