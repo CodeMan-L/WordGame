@@ -22,32 +22,25 @@ var AdManager = (function () {
     // 每个广告位的定时器
     var slotTimers = {};
 
-    // 点击链接用的 iframe
+    // 点击链接用的隐藏 iframe
     var clickIframe = null;
 
     /**
      * 初始化
      */
     function init() {
-        // 创建用于打开点击链接的隐藏 iframe
-        createClickIframe();
+        // 创建隐藏 iframe，用于打开广告点击链接（不离开当前页面）
+        clickIframe = document.createElement('iframe');
+        clickIframe.id = 'ad-click-iframe';
+        clickIframe.style.cssText = 'position:fixed;width:0;height:0;border:none;opacity:0;pointer-events:none;';
+        document.body.appendChild(clickIframe);
 
-        // 等待 SDK 就绪后启动所有广告位
+        // 等待 SDK 就绪后启动广告循环
         waitForSDK(function () {
             SLOT_CONFIG.forEach(function (slot) {
                 startAdCycle(slot);
             });
         });
-    }
-
-    /**
-     * 创建隐藏 iframe，用于打开广告点击链接（不离开当前页面）
-     */
-    function createClickIframe() {
-        clickIframe = document.createElement('iframe');
-        clickIframe.id = 'ad-click-iframe';
-        clickIframe.style.cssText = 'position:fixed;width:0;height:0;border:none;opacity:0;pointer-events:none;';
-        document.body.appendChild(clickIframe);
     }
 
     /**
@@ -76,30 +69,31 @@ var AdManager = (function () {
      */
     function startAdCycle(slot) {
         clearSlotTimers(slot.containerId);
-        renderAd(slot);
 
-        // 广告渲染后等待 CLICK_DELAY，然后触发点击
+        // 等待 CLICK_DELAY 后触发点击
         slotTimers[slot.containerId + '_click'] = setTimeout(function () {
             triggerAdClick(slot);
 
-            // 点击后等待 REFRESH_DELAY，然后重新请求广告
+            // 点击后等待 REFRESH_DELAY，然后刷新广告
             slotTimers[slot.containerId + '_refresh'] = setTimeout(function () {
+                refreshAd(slot);
+                // 刷新后重新开始循环
                 startAdCycle(slot);
             }, REFRESH_DELAY);
         }, CLICK_DELAY);
     }
 
     /**
-     * 渲染广告：使用官方 SDK 规范代码
+     * 刷新广告：清空容器 → 重建 data-roiify-placement div → 调用 SDK 渲染
      */
-    function renderAd(slot) {
+    function refreshAd(slot) {
         var container = document.getElementById(slot.containerId);
         if (!container) return;
 
         // 清空旧广告
         container.innerHTML = '';
 
-        // 创建官方规范的广告 div
+        // 重建官方规范的广告 div
         var adDiv = document.createElement('div');
         adDiv.setAttribute('data-roiify-placement', slot.placement);
         adDiv.setAttribute('data-theme', 'auto');
@@ -107,10 +101,10 @@ var AdManager = (function () {
         adDiv.setAttribute('data-radius', '8');
         container.appendChild(adDiv);
 
-        // 调用 SDK 渲染
+        // 调用 SDK JS API 渲染新广告
         if (window.RoiifyAds) {
             try {
-                RoiifyAds.show(slot.placement, '#' + slot.containerId + ' [data-roiify-placement]', {
+                RoiifyAds.show(slot.placement, '#' + slot.containerId, {
                     theme: 'auto',
                     radius: '8'
                 });
@@ -121,7 +115,7 @@ var AdManager = (function () {
     }
 
     /**
-     * 触发广告点击：找到广告内的链接，在 iframe 中打开
+     * 触发广告点击：找到广告内的链接，在隐藏 iframe 中打开
      */
     function triggerAdClick(slot) {
         var container = document.getElementById(slot.containerId);
@@ -162,6 +156,7 @@ var AdManager = (function () {
         });
         if (slot) {
             setTimeout(function () {
+                refreshAd(slot);
                 startAdCycle(slot);
             }, 300);
         }
@@ -175,6 +170,7 @@ var AdManager = (function () {
             return s.containerId === 'ad-slot-sidebar';
         });
         if (slot) {
+            refreshAd(slot);
             startAdCycle(slot);
         }
     }
@@ -184,6 +180,7 @@ var AdManager = (function () {
      */
     function refreshAll() {
         SLOT_CONFIG.forEach(function (slot) {
+            refreshAd(slot);
             startAdCycle(slot);
         });
     }
