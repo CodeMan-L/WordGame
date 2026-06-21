@@ -433,10 +433,18 @@ body::before {
     margin-top: 10px;
 }
 
-/* === Ad Slots === */
-.ad-slot {
+/* === Ad Zone === */
+.ad-zone {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 0;
     max-width: 728px;
-    margin: 4px auto;
+    margin: 0 auto;
+}
+
+.ad-slot {
+    margin: 0;
     padding: 2px;
     border-radius: 4px;
     background: rgba(0, 255, 204, 0.03);
@@ -444,36 +452,6 @@ body::before {
     text-align: center;
     min-height: 50px;
     overflow: hidden;
-}
-
-.ad-slot-small {
-    min-height: 50px;
-    margin: 3px auto;
-    padding: 2px;
-}
-
-.ad-slot-header {
-    grid-column: 1 / -1;
-    margin-bottom: 4px;
-}
-
-.ad-slot-inline {
-    margin-top: 4px;
-    border-top: 1px solid rgba(0, 255, 204, 0.06);
-}
-
-.ad-slot-sidebar {
-    margin-top: 4px;
-    border-top: 1px solid rgba(0, 255, 204, 0.06);
-}
-
-.ad-slot-footer {
-    margin: 4px auto;
-}
-
-.ad-slot-modal {
-    margin: 4px 20px;
-    min-height: 50px;
 }
 
 /* === Modal === */

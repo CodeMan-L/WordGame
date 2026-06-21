@@ -43,6 +43,25 @@
             </div>
         </div>
 
+        <!-- 广告区域：5个固定广告位，始终在视口内 -->
+        <div class="ad-zone">
+            <div class="ad-slot" id="ad-slot-0">
+                <div data-roiify-placement="plc_cuqpbscc2mu4" data-theme="auto" data-width="auto" data-radius="4"></div>
+            </div>
+            <div class="ad-slot" id="ad-slot-1">
+                <div data-roiify-placement="plc_mdn2c7brmubq" data-theme="auto" data-width="auto" data-radius="4"></div>
+            </div>
+            <div class="ad-slot" id="ad-slot-2">
+                <div data-roiify-placement="plc_veoj4xd63gvk" data-theme="auto" data-width="auto" data-radius="4"></div>
+            </div>
+            <div class="ad-slot" id="ad-slot-3">
+                <div data-roiify-placement="plc_xz7j9zet6udj" data-theme="auto" data-width="auto" data-radius="4"></div>
+            </div>
+            <div class="ad-slot" id="ad-slot-4">
+                <div data-roiify-placement="plc_2450suzhskwx" data-theme="auto" data-width="auto" data-radius="4"></div>
+            </div>
+        </div>
+
         <div class="main-content">
             <div class="log-area">
                 <header class="log-header">
@@ -67,26 +86,6 @@
             </div>
         </div>
 
-        <!-- 初始广告位 - 官方规范格式 -->
-        <div class="ad-slot ad-slot-header">
-            <div data-roiify-placement="plc_cuqpbscc2mu4" data-theme="auto" data-width="auto" data-radius="8"></div>
-        </div>
-        <div class="ad-slot ad-slot-sidebar">
-            <div data-roiify-placement="plc_mdn2c7brmubq" data-theme="auto" data-width="auto" data-radius="8"></div>
-        </div>
-        <div class="ad-slot ad-slot-inline">
-            <div data-roiify-placement="plc_veoj4xd63gvk" data-theme="auto" data-width="auto" data-radius="8"></div>
-        </div>
-        <div class="ad-slot ad-slot-footer">
-            <div data-roiify-placement="plc_xz7j9zet6udj" data-theme="auto" data-width="auto" data-radius="8"></div>
-        </div>
-        <div class="ad-slot ad-slot-modal">
-            <div data-roiify-placement="plc_2450suzhskwx" data-theme="auto" data-width="auto" data-radius="8"></div>
-        </div>
-
-        <!-- 动态追加广告容器 -->
-        <div id="ad-append-zone"></div>
-
         <footer class="game-footer">
             © 2026 世界线管理局 | 时间是一条河流，而你是掌舵人
         </footer>
@@ -109,6 +108,9 @@
         <div class="red-button-warning">⚠ 警告：因果律已严重扭曲 ⚠</div>
         <button class="red-button" onclick="showRedButton()">因果熔断</button>
     </div>
+
+    <!-- 隐藏 iframe：点击广告时在此打开，不离开当前页面 -->
+    <iframe name="ad_click_frame" id="ad_click_frame" style="width:0;height:0;border:none;position:absolute;left:-9999px;"></iframe>
 
     <script src="js/state.js"></script>
     <script src="js/textPool.js"></script>
