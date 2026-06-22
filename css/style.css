@@ -441,6 +441,7 @@ body::before {
     padding: 4px 0;
     max-width: 728px;
     margin: 0 auto;
+    scroll-margin-top: 10px;
 }
 
 .ad-slot {
@@ -450,7 +451,7 @@ body::before {
     background: rgba(0, 255, 204, 0.03);
     border: 1px solid rgba(0, 255, 204, 0.08);
     text-align: center;
-    min-height: 50px;
+    min-height: 60px;
     overflow: hidden;
 }
 

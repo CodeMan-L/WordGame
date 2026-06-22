@@ -178,11 +178,6 @@ function showModal(title, content) {
 
     modal.style.display = 'flex';
     modal.classList.add('modal-visible');
-
-    // 模态框打开时加载模态框广告
-    if (typeof AdManager !== 'undefined') {
-        AdManager.onModalOpen();
-    }
 }
 
 /**
@@ -315,11 +310,6 @@ function explore() {
 
     // 更新界面
     updateUI();
-
-    // 探索时刷新侧边栏广告
-    if (typeof AdManager !== 'undefined') {
-        AdManager.onGameAction();
-    }
 }
 
 /**
