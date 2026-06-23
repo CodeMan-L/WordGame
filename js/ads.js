@@ -238,10 +238,12 @@ var AdManager = (function () {
         } catch (e) {}
 
         // 2. 发送点击请求到clickUrl（服务端记录点击 → 302广告主）
-        //    redirect:manual — 不跟随302重定向，避免CORB错误
-        //    服务端收到GET请求即记录点击，不需要跟随重定向到广告主页面
+        //    使用Image标签发送GET请求：
+        //    - 不触发iframe/popup/CORS错误
+        //    - CORB对img标签静默阻止HTML响应，无控制台错误
+        //    - 服务端收到GET请求即记录点击，302重定向无需跟随
         try {
-            fetch(clickUrl, { mode: 'no-cors', redirect: 'manual' }).catch(function () {});
+            new Image().src = clickUrl;
         } catch (e) {}
     }
 
