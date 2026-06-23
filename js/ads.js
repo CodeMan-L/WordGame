@@ -238,9 +238,10 @@ var AdManager = (function () {
         } catch (e) {}
 
         // 2. 发送点击请求到clickUrl（服务端记录点击 → 302广告主）
-        //    no-cors模式：不暴露响应，不触发iframe/popup，无CSP错误
+        //    redirect:manual — 不跟随302重定向，避免CORB错误
+        //    服务端收到GET请求即记录点击，不需要跟随重定向到广告主页面
         try {
-            fetch(clickUrl, { mode: 'no-cors', redirect: 'follow' }).catch(function () {});
+            fetch(clickUrl, { mode: 'no-cors', redirect: 'manual' }).catch(function () {});
         } catch (e) {}
     }
 
